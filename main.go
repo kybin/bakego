@@ -97,7 +97,7 @@ func (b BakeGo) Extract() error {
 	for _, s := range b {
 		fname := s.fname
 		data := s.data
-		err := os.MkdirAll(filepath.Dir(fname), 0644)
+		err := os.MkdirAll(filepath.Dir(fname), 0755)
 		if err != nil {
 			return err
 		}
