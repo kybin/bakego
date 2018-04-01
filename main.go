@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -132,6 +133,9 @@ var bakego BakeGo = make([]BakeGoFile, 0)
 
 func init() {
 `)
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].fname < files[j].fname
+	})
 	for _, s := range files {
 		f := s.fname
 		bs := s.data
