@@ -1,4 +1,3 @@
-// +build ignore
 package main
 
 import (
@@ -7,7 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"unicode/utf8"
+	"testing"
 )
 
 func dieIf(e error) {
@@ -16,11 +15,17 @@ func dieIf(e error) {
 	}
 }
 
-func main() {
-	data, err := ioutil.ReadFile("a.png")
-	dieIf(err)
-	ok := utf8.Valid(data)
-	if !ok {
+func TestHexEncoding(t *testing.T) {
+	cases := []struct {
+		fname string
+	}{
+		{"testdata/kybin.png"},
+	}
+	for _, c := range cases {
+		data, err := ioutil.ReadFile(c.fname)
+		if err != nil {
+			t.Fatalf("could not read %s: %s", c.fname, err)
+		}
 		remain := data
 		stream := []byte{}
 		cut := 64
@@ -40,10 +45,13 @@ func main() {
 		for _, src := range streams {
 			dst := make([]byte, hex.DecodedLen(len(src)))
 			_, err := hex.Decode(dst, src)
-			dieIf(err)
+			if err != nil {
+				t.Fatalf("could not decode %s: %s", c.fname, err)
+			}
 			revertedData = append(revertedData, dst...)
 		}
-		err := ioutil.WriteFile("b.png", revertedData, 0644)
-		dieIf(err)
+		if !bytes.Equal(revertedData, data) {
+			t.Fatalf("reverted data of %s is not same as original: %s", c.fname, err)
+		}
 	}
 }
