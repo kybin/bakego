@@ -3,15 +3,8 @@ package main
 import (
 	"bytes"
 	"io/ioutil"
-	"log"
 	"testing"
 )
-
-func dieIf(e error) {
-	if e != nil {
-		log.Fatal(e)
-	}
-}
 
 func TestHexEncoding(t *testing.T) {
 	cases := []struct {

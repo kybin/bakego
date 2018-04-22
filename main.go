@@ -29,12 +29,6 @@ func readFile(f string) File {
 	return File{fname: f, typ: typ, data: b}
 }
 
-// die exits this program with error message.
-func die(e string) {
-	fmt.Fprintln(os.Stderr, e)
-	os.Exit(1)
-}
-
 // trimExt trims ext from file name.
 func trimExt(f string) string {
 	return f[:len(f)-len(filepath.Ext(f))]
@@ -44,7 +38,8 @@ func trimExt(f string) string {
 func findPackage() string {
 	files, err := filepath.Glob("*.go")
 	if err != nil {
-		die(err.Error())
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 	pkg := ""
 	for _, fname := range files {
