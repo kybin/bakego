@@ -42,7 +42,7 @@ func findPackage() string {
 	}
 	pkg := ""
 	for _, fname := range files {
-		if strings.HasPrefix(fname, "gen_bakego_") || strings.HasSuffix(trimExt(fname), "_test") {
+		if strings.HasPrefix(fname, "gen_bakego") || strings.HasSuffix(trimExt(fname), "_test") {
 			continue
 		}
 		f := readFile(fname)
