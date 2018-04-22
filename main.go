@@ -4,6 +4,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
 
 // readFile reads a file.
@@ -20,7 +22,11 @@ func readFile(f string) File {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	return File{fname: f, typ: String, data: b}
+	typ := String
+	if !utf8.Valid(b) {
+		typ = Binary
+	}
+	return File{fname: f, typ: typ, data: b}
 }
 
 // die exits this program with error message.
@@ -81,13 +87,15 @@ func genGo(files []File, pkg string) {
 	w.WriteString(`
 import (
 	"bufio"
+	"bytes"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 )
 
 type BakeGoFile struct {
 	fname string
-	typ string
+	enc string
 	data []byte
 }
 
@@ -97,7 +105,7 @@ type BakeGo []BakeGoFile
 func (b BakeGo) Extract() error {
 	for _, s := range b {
 		fname := s.fname
-		typ := s.typ
+		enc := s.enc
 		data := s.data
 		err := os.MkdirAll(filepath.Dir(fname), 0755)
 		if err != nil {
@@ -108,11 +116,17 @@ func (b BakeGo) Extract() error {
 			return err
 		}
 		w := bufio.NewWriter(f)
-		if typ == "string" {
-			_, err = w.Write(data)
+		decoded := data
+		if enc == "hex" {
+			d, err := fromHex(data)
 			if err != nil {
 				return err
 			}
+			decoded = d
+		}
+		_, err = w.Write(decoded)
+		if err != nil {
+			return err
 		}
 		w.Flush()
 	}
@@ -133,6 +147,24 @@ func (b BakeGo) Ensure() error {
 	return nil
 }
 
+// fromHex are twin functions that lives both inside and outside of generated file.
+// Outside one is for testing purpose.
+//
+// Note: if you change this function, change it's twin function too.
+func fromHex(data []byte) ([]byte, error) {
+	reverted := make([]byte, 0, len(data))
+	lines := bytes.Split(data, []byte("\n"))
+	for _, src := range lines {
+		dst := make([]byte, hex.DecodedLen(len(src)))
+		_, err := hex.Decode(dst, src)
+		if err != nil {
+			return nil, err
+		}
+		reverted = append(reverted, dst...)
+	}
+	return reverted, nil
+}
+
 var bakego BakeGo = make([]BakeGoFile, 0)
 
 func init() {
@@ -145,8 +177,13 @@ func init() {
 			continue
 		}
 		f := s.fname
+		typ := s.typ
+		enc := ""
+		if typ == Binary {
+			enc = "hex"
+		}
 		bs := s.data
-		w.WriteString(fmt.Sprintf("\tbakego = append(bakego, BakeGoFile{\"%s\", \"string\", []byte(", f))
+		w.WriteString(fmt.Sprintf("\tbakego = append(bakego, BakeGoFile{\"%s\", \"%s\", []byte(", f, enc))
 		if s.typ == String {
 			w.WriteString("`")
 			s := string(bs)
@@ -155,10 +192,50 @@ func init() {
 			s = strings.Replace(s, "`", "` + \"`\" + `", -1)
 			w.WriteString(s)
 			w.WriteString("`")
+		} else if s.typ == Binary {
+			w.WriteString("`")
+			w.WriteString(hexString(s.data))
+			w.WriteString("`")
 		}
 		w.WriteString(")})\n")
 	}
 	w.WriteString("}\n")
+}
+
+func hexString(data []byte) string {
+	remain := data
+	hex := []byte{}
+	cut := 64
+	for {
+		if len(remain) < cut {
+			cut = len(remain)
+		}
+		c := remain[:cut]
+		hex = append(hex, []byte(fmt.Sprintf("%x\n", c))...)
+		remain = remain[cut:]
+		if len(remain) == 0 {
+			break
+		}
+	}
+	return string(hex)
+}
+
+// fromHex are twin functions that lives both inside and outside of generated file.
+// Outside one is for testing purpose.
+//
+// Note: if you change this function, change it's twin function too.
+func fromHex(data []byte) ([]byte, error) {
+	reverted := make([]byte, 0, len(data))
+	lines := bytes.Split(data, []byte("\n"))
+	for _, src := range lines {
+		dst := make([]byte, hex.DecodedLen(len(src)))
+		_, err := hex.Decode(dst, src)
+		if err != nil {
+			return nil, err
+		}
+		reverted = append(reverted, dst...)
+	}
+	return reverted, nil
 }
 
 type FileType int
@@ -166,6 +243,7 @@ type FileType int
 const (
 	Unknown = FileType(iota)
 	String
+	Binary
 )
 
 type File struct {
