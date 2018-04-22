@@ -23,7 +23,7 @@ $ bakego -d tmpl
 ```
 
 It will generate gen_bakego.go.
-The generated code has a global variable named bakego, itself has two methods Extract and Ensure.
+The generated code has a global variable named `bakego`, itself has two methods `Extract` and `Ensure`.
 So you can add code yourself like,
 
 ```
