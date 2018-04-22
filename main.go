@@ -14,13 +14,13 @@ import (
 )
 
 // readFile reads a file.
-func readFile(f string) []byte {
+func readFile(f string) File {
 	b, err := ioutil.ReadFile(f)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	return b
+	return File{fname: f, typ: String, data: b}
 }
 
 // die exits this program with error message.
@@ -41,12 +41,12 @@ func findPackage() string {
 		die(err.Error())
 	}
 	pkg := ""
-	for _, f := range files {
-		if strings.HasPrefix(f, "gen_bakego_") || strings.HasSuffix(trimExt(f), "_test") {
+	for _, fname := range files {
+		if strings.HasPrefix(fname, "gen_bakego_") || strings.HasSuffix(trimExt(fname), "_test") {
 			continue
 		}
-		text := readFile(f)
-		lines := bytes.Split(text, []byte("\n"))
+		f := readFile(fname)
+		lines := bytes.Split(f.data, []byte("\n"))
 		for _, line := range lines {
 			line = bytes.TrimSpace(line)
 			if bytes.HasPrefix(line, []byte("package ")) {
@@ -87,6 +87,7 @@ import (
 
 type BakeGoFile struct {
 	fname string
+	typ string
 	data []byte
 }
 
@@ -96,6 +97,7 @@ type BakeGo []BakeGoFile
 func (b BakeGo) Extract() error {
 	for _, s := range b {
 		fname := s.fname
+		typ := s.typ
 		data := s.data
 		err := os.MkdirAll(filepath.Dir(fname), 0755)
 		if err != nil {
@@ -106,9 +108,11 @@ func (b BakeGo) Extract() error {
 			return err
 		}
 		w := bufio.NewWriter(f)
-		_, err = w.Write(data)
-		if err != nil {
-			return err
+		if typ == "string" {
+			_, err = w.Write(data)
+			if err != nil {
+				return err
+			}
 		}
 		w.Flush()
 	}
@@ -137,22 +141,36 @@ func init() {
 		return files[i].fname < files[j].fname
 	})
 	for _, s := range files {
+		if s.typ == Unknown {
+			continue
+		}
 		f := s.fname
 		bs := s.data
-		w.WriteString(fmt.Sprintf("\tbakego = append(bakego, BakeGoFile{\"%s\", []byte(", f))
-		// cannot handle ` inside of raw string
-		// make them as separate strings
-		s := string(bs)
-		s = strings.Replace(s, "`", "` + \"`\" + `", -1)
-		s = "`" + s + "`"
-		w.WriteString(s)
+		w.WriteString(fmt.Sprintf("\tbakego = append(bakego, BakeGoFile{\"%s\", \"string\", []byte(", f))
+		if s.typ == String {
+			w.WriteString("`")
+			s := string(bs)
+			// raw string cannot handle `
+			// make them as separate strings
+			s = strings.Replace(s, "`", "` + \"`\" + `", -1)
+			w.WriteString(s)
+			w.WriteString("`")
+		}
 		w.WriteString(")})\n")
 	}
 	w.WriteString("}\n")
 }
 
+type FileType int
+
+const (
+	Unknown = FileType(iota)
+	String
+)
+
 type File struct {
 	fname string
+	typ   FileType
 	data  []byte
 }
 
@@ -196,11 +214,11 @@ func main() {
 					}
 					return filepath.SkipDir
 				}
-				files = append(files, File{path, readFile(path)})
+				files = append(files, readFile(path))
 				return nil
 			})
 		} else {
-			files = append(files, File{el, readFile(el)})
+			files = append(files, readFile(el))
 		}
 	}
 	pkg := findPackage()
