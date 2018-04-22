@@ -189,7 +189,7 @@ func init() {
 			w.WriteString("`")
 		} else if s.typ == Binary {
 			w.WriteString("`")
-			w.WriteString(hexString(s.data))
+			w.Write(toHex(s.data))
 			w.WriteString("`")
 		}
 		w.WriteString(")})\n")
@@ -197,7 +197,7 @@ func init() {
 	w.WriteString("}\n")
 }
 
-func hexString(data []byte) string {
+func toHex(data []byte) []byte {
 	remain := data
 	hex := []byte{}
 	cut := 64
@@ -212,7 +212,7 @@ func hexString(data []byte) string {
 			break
 		}
 	}
-	return string(hex)
+	return hex
 }
 
 // fromHex are twin functions that lives both inside and outside of generated file.
