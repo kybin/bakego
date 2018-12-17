@@ -84,6 +84,8 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/hex"
+	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 )
@@ -137,6 +139,30 @@ func (b BakeGo) Ensure() error {
 		_, err := os.Stat(s.fname)
 		if err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// When developing a code, it should always be the same
+// between bakego data and the actual file.
+// If they are not same, it will error.
+func (b BakeGo) Identical() error {
+	for _, s := range b {
+		src, err := ioutil.ReadFile(s.fname)
+		if err != nil {
+			return err
+		}
+		dst := s.data
+		if s.enc == "hex" {
+			d, err := fromHex(dst)
+			if err != nil {
+				return err
+			}
+			dst = d
+		}
+		if !bytes.Equal(src, dst) {
+			return fmt.Errorf("bakego: src and dst is not identical: %s", s.fname)
 		}
 	}
 	return nil
@@ -224,6 +250,27 @@ func fromHex(data []byte) ([]byte, error) {
 	return reverted, nil
 }
 
+func genGoTest() {
+	fd, err := os.Create("gen_bakego_test.go")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	defer fd.Close()
+	w := bufio.NewWriter(fd)
+	defer w.Flush()
+	w.WriteString(`package main
+
+import "testing"
+
+func TestBakeGo(t *testing.T) {
+	err := bakego.Identical()
+	if err != nil {
+		t.Fatal(err)
+	}
+}`)
+}
+
 type FileType int
 
 const (
@@ -287,4 +334,5 @@ func main() {
 	}
 	pkg := findPackage()
 	genGo(files, pkg)
+	genGoTest()
 }
