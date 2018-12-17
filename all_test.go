@@ -17,7 +17,7 @@ func TestHexEncoding(t *testing.T) {
 		if err != nil {
 			t.Fatalf("could not read %s: %s", c.fname, err)
 		}
-		encoded := hexString(data)
+		encoded := toHex(data)
 		reverted, err := fromHex([]byte(encoded))
 		if err != nil {
 			t.Fatalf("could not decode %s: %s", c.fname, err)
