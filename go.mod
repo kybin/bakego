@@ -1,1 +1,1 @@
-module "github.com/kybin/bakego"
+module github.com/kybin/bakego
