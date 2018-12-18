@@ -26,7 +26,7 @@ func readFile(f string) File {
 	if !utf8.Valid(b) {
 		typ = Binary
 	}
-	return File{fname: f, typ: typ, data: b}
+	return File{fname: filepath.ToSlash(f), typ: typ, data: b}
 }
 
 // trimExt trims ext from file name.
